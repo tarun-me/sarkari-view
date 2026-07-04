@@ -1,0 +1,26 @@
+{
+    "central_jobs": [
+        { "name": "SSC", "url": "https://ssc.gov.in/" },
+        { "name": "UPSC", "url": "https://upsc.gov.in/whats-new" },
+        { "name": "IBPS_Bank_Jobs", "url": "https://www.ibps.in/" },
+        { "name": "DSSSB_Delhi", "url": "https://dsssb.delhi.gov.in/whats-new" },
+        { "name": "NTA_Exams", "url": "https://nta.ac.in/" },
+        { "name": "Indian_Airforce", "url": "https://agnipathvayu.cdac.in/" },
+        { "name": "Indian_Navy", "url": "https://www.joinindiannavy.gov.in/" },
+        { "name": "Indian_Army", "url": "https://joinindianarmy.nic.in/" },
+        { "name": "DRDO", "url": "https://www.drdo.gov.in/drdo/careers" },
+        { "name": "ISRO", "url": "https://www.isro.gov.in/Careers.html" }
+    ],
+    "state_jobs": [
+        { "name": "HSSC_Haryana", "url": "https://hssc.gov.in/Advertisements" },
+        { "name": "HPSC_Haryana", "url": "https://hpsc.gov.in/en-us/Advertisements" },
+        { "name": "IGU_Notices", "url": "https://igu.ac.in/notices/" },
+        { "name": "UPPSC_Uttar_Pradesh", "url": "https://uppsc.up.nic.in/" },
+        { "name": "UPSSSC_Uttar_Pradesh", "url": "https://upsssc.gov.in/" },
+        { "name": "BPSC_Bihar", "url": "https://www.bpsc.bih.nic.in/" },
+        { "name": "RSMSSB_Rajasthan", "url": "https://rsmssb.rajasthan.gov.in/" },
+        { "name": "MPPEB_Madhya_Pradesh", "url": "https://esb.mp.gov.in/" },
+        { "name": "UKPSC_Uttarakhand", "url": "https://psc.uk.gov.in/" },
+        { "name": "WBPSC_West_Bengal", "url": "https://psc.wb.gov.in/" }
+    ]
+}
