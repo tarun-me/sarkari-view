@@ -2,14 +2,13 @@ name: Automated Sarkari Job Scraper
 
 on:
   schedule:
-    # Har roz subah 6:00 AM IST par automatic chalega (UTC 12:30 AM)
-    - cron: '30 0 * * *'
-  workflow_dispatch: # Isse aap manually bhi "Run" button daba kar chala sakte hain
+    # Har 4 ghante mein ek baar chalega (At minute 0 of every 4th hour)
+    - cron: '0 */4 * * *'
+  workflow_dispatch: # Manual run button active rahega
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout Repository Code
       uses: actions/checkout@v4
@@ -19,7 +18,7 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install Chrome Driver (For Headless Scraping)
+    - name: Install Chrome Driver
       run: |
         sudo apt-get update
         sudo apt-get install -y google-chrome-stable
