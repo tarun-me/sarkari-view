@@ -2,13 +2,14 @@ name: Automated Sarkari Job Scraper
 
 on:
   schedule:
-    # Har 4 ghante mein ek baar chalega (At minute 0 of every 4th hour)
+    # Har 4 ghante mein ek baar automatic chalega
     - cron: '0 */4 * * *'
   workflow_dispatch: # Manual run button active rahega
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
+
     steps:
     - name: Checkout Repository Code
       uses: actions/checkout@v4
@@ -18,10 +19,15 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install Chrome Driver
+    - name: Install Google Chrome
       run: |
         sudo apt-get update
         sudo apt-get install -y google-chrome-stable
+
+    # 🔥 FIX: Purane aur mismatched ChromeDriver ko delete karna taaki Selenium apna naya driver khud download kare
+    - name: Remove mismatched pre-installed ChromeDriver
+      run: |
+        sudo rm -f /usr/bin/chromedriver
 
     - name: Install Python Dependencies
       run: |
