@@ -20,7 +20,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 # Initialize Clients
-groq_client = Groq(api_key=GROQ_KEY)
+groq_client = Groq(api_key=SECRET_KEY)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def is_relevant_notice(title, text=""):
