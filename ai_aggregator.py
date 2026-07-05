@@ -15,12 +15,12 @@ from supabase import create_client, Client
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 load_dotenv()
 
-GROQ_KEY = os.getenv("SECRET_KEY")
+GROQ_KEY = os.getenv("GROQ_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 # Initialize Clients
-groq_client = Groq(api_key=SECRET_KEY)
+groq_client = Groq(api_key=GROQ_KEY)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def is_relevant_notice(title, text=""):
