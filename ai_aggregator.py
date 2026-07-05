@@ -7,7 +7,6 @@ import urllib3
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from urllib.parse import urljoin
-# 🔥 Switched from Google GenAI to Groq
 from groq import Groq
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -19,12 +18,11 @@ GROQ_KEY = os.getenv("GROQ_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-# Initialize Clients
 groq_client = Groq(api_key=GROQ_KEY)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def is_relevant_notice(title, text=""):
-    keywords = ["recruitment", "vacancy", "apply", "online", "bharti", "exam", "post", "notification", "crp", "agniveer", "vayu", "navy", "army", "hiring"]
+    keywords = ["recruitment", "vacancy", "apply", "online", "bharti", "exam", "post", "notification", "crp", "agniveer", "vayu", "navy", "army", "hiring", "officer", "jobs"]
     combined_content = (title + " " + text).lower()
     return any(kw in combined_content for kw in keywords)
 
@@ -36,6 +34,7 @@ def get_existing_database_records():
         print(f"⚠️ DB Fetch Error: {e}")
         return []
 
+# ---- BROWSER CONFIGURATION JAHAN TIMEOUTS KHATAM HONGE ----
 if os.getenv("GITHUB_ACTIONS") == "true":
     from selenium.webdriver.chrome.options import Options
     options = Options()
@@ -43,13 +42,24 @@ if os.getenv("GITHUB_ACTIONS") == "true":
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    options.add_argument("--disable-extensions")
+    
+    # 🔥 FIX 1: Heavy images ko download hone se roko taaki Renderer crash na ho
+    options.add_argument("--blink-settings=imagesEnabled=false")
+    
+    # 🔥 FIX 2: Hide automation footprint (Sarkari firewalls ko bypass karne ke liye)
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option('useAutomationExtension', False)
+    
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
     options.page_load_strategy = 'eager'
     driver = webdriver.Chrome(options=options)
 else:
     driver = webdriver.Safari()
 
-driver.set_page_load_timeout(25)
+# Safe buffer timeout
+driver.set_page_load_timeout(35)
 
 try:
     with open("sites.json", "r") as f:
@@ -60,22 +70,27 @@ try:
         print(f"\n🌍 Checking {site['name']}...")
         try:
             driver.get(site['url'])
-            time.sleep(4) 
+            time.sleep(5) 
             soup = BeautifulSoup(driver.page_source, "html.parser")
             
             extracted_texts_to_analyze = []
 
-            # ---- CASE 1: SARKARI RESULT ----
+            # ---- CASE 1: SARKARI RESULT (BROAD SEARCH) ----
             if "sarkariresult.com" in site['url'].lower():
                 print("🎯 Sarkari Result sections scan ho rahe hain...")
                 job_links = []
                 for link in soup.find_all("a", href=True):
-                    if "/latestjob/" in link['href'].lower() or "agniveer" in link.text.lower():
-                        if is_relevant_notice(link.text.strip()):
+                    href = link['href'].lower()
+                    text = link.text.strip()
+                    
+                    # 🔥 FIX 3: Broaden matching parameters for Sarkari Result sub-folders
+                    if any(x in href for x in ["/latestjob/", "/state-job/", "/force/", "/ssc/", "/upsc/", "/bank/", "/railway/"]) or "recruitment" in href or "agniveer" in href:
+                        if is_relevant_notice(text):
                             full_job_url = urljoin(site['url'], link['href'])
-                            job_links.append((link.text.strip(), full_job_url))
+                            if full_job_url not in [j[1] for j in job_links]:
+                                job_links.append((text, full_job_url))
                 
-                for title, j_url in job_links[:5]:
+                for title, j_url in job_links[:6]:
                     print(f"🔗 Visiting Job Page: {title}")
                     try:
                         driver.get(j_url)
@@ -102,7 +117,7 @@ try:
                 for title, pdf_link in valid_pdf_links:
                     print(f"📄 Downloading PDF: {title}")
                     try:
-                        res = requests.get(pdf_link, headers={"User-Agent": "Mozilla"}, verify=False, timeout=10)
+                        res = requests.get(pdf_link, headers={"User-Agent": "Mozilla/5.0"}, verify=False, timeout=12)
                         if 'application/pdf' in res.headers.get('Content-Type', ''):
                             with open("temp.pdf", "wb") as f:
                                 f.write(res.content)
@@ -115,7 +130,7 @@ try:
                     except Exception as pe:
                         print(f"⚠️ PDF Download Failed for {title}")
 
-            # ---- AI PROCESSING & SMART MERGE VIA GROQ ----
+            # ---- AI PROCESSING VIA GROQ ----
             if not extracted_texts_to_analyze:
                 print(f"⏭️ No relevant active forms found on {site['name']}.")
                 continue
@@ -151,7 +166,6 @@ try:
                 }}
                 """
                 try:
-                    # 🔥 Groq API Call with Llama-3.3 Model
                     chat_completion = groq_client.chat.completions.create(
                         messages=[
                             {"role": "system", "content": "You are a database parser that outputs raw JSON only."},
