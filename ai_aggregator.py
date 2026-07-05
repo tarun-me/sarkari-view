@@ -123,7 +123,7 @@ try:
                         if full_job_url not in [j[1] for j in job_links]:
                             job_links.append((text, full_job_url))
             
-            # 🔥 TOP 15 LATEST NOTIFICATIONS DEEP CHECK (FIXED SYNTAX)
+            # 🔥 TOP 15 LATEST NOTIFICATIONS DEEP CHECK
             for title, j_url in job_links[:15]:
                 print(f"🔗 Crawling Deep Job Page: {title}")
                 try:
@@ -155,4 +155,87 @@ try:
                         with open("temp.pdf", "wb") as f:
                             f.write(res.content)
                         with pdfplumber.open("temp.pdf") as pdf:
-                            pdf_text = pdf.pages
+                            pdf_text = pdf.pages[0].extract_text() or ""
+                        os.remove("temp.pdf")
+                        
+                        if pdf_text.strip() and is_relevant_notice(title, pdf_text):
+                            extracted_texts_to_analyze.append({"source": title, "text": pdf_text})
+                except Exception as pe:
+                    print(f"⚠️ PDF parse skipped for {title}")
+
+        # ---- AI BULK PROCESSING VIA GROQ LLAMA 3.3 ----
+        if not extracted_texts_to_analyze:
+            print(f"⏭️ No active recruitment data parsed for {site['name']}.")
+            continue
+
+        existing_db_data = get_existing_database_records()
+
+        for item in extracted_texts_to_analyze:
+            print(f"🧠 Llama-3 AI Processing: {item['source']}")
+            
+            prompt = f"""
+            You are a Data Management AI for a Job Portal.
+            Analyze this recruitment raw content: {item['text']}
+            
+            Existing Exams in Database:
+            {json.dumps(existing_db_data)}
+            
+            Task:
+            1. Verify if this text is an official government recruitment application form.
+            2. Check if it already exists in the Database list intelligently.
+            3. If it's a DUPLICATE or an UPDATE, set "is_duplicate_or_update" to true and provide the "existing_id".
+            
+            Respond STRICTLY in this JSON format:
+            {{
+              "is_valid_exam": boolean,
+              "is_duplicate_or_update": boolean,
+              "existing_id": integer or null,
+              "department": string,
+              "notice_subject": string,
+              "form_status": string,
+              "start_date": string,
+              "last_date": string,
+              "exam_date": string
+            }}
+            """
+            try:
+                # Groq API implementation with native JSON mode output
+                chat_completion = groq_client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": "You are a database parser that outputs raw JSON only."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    model="llama-3.3-70b-versatile",
+                    response_format={"type": "json_object"}
+                )
+                
+                ai_data = json.loads(chat_completion.choices[0].message.content)
+                
+                if ai_data.get("is_valid_exam") == True:
+                    is_dup = ai_data.pop("is_duplicate_or_update", False)
+                    existing_id = ai_data.pop("existing_id", None)
+                    ai_data.pop("is_valid_exam", None)
+
+                    if is_dup and existing_id:
+                        # Database Update logic (Merge Engine)
+                        supabase.table("exams").update(ai_data).eq("id", existing_id).execute()
+                        print(f"🔄 AI MERGE SUCCESS: Updated ID {existing_id}")
+                    else:
+                        # Clean entry insert logic
+                        try:
+                            supabase.table("exams").insert(ai_data).execute()
+                            print(f"💾 NEW INSERT SUCCESS: Saved {ai_data['notice_subject']}")
+                        except Exception as db_dup_err:
+                            # Strict Database unique constraint bypass
+                            print(f"⏭️ Database Blocked Duplicate Entry: {ai_data['notice_subject']}")
+                else:
+                    print("⏭️ Filtered out: Content does not contain a valid active registration form.")
+            except Exception as ai_err:
+                print(f"⚠️ Database write skipped: {ai_err}")
+
+except Exception as global_err:
+    print(f"❌ Core System Error: {global_err}")
+
+finally:
+    driver.quit()
+    print("\n✅ System closed cleanly.")
