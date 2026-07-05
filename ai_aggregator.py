@@ -7,22 +7,22 @@ import urllib3
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from urllib.parse import urljoin
-from google import genai
-from google.genai import types
+# 🔥 Switched from Google GenAI to Groq
+from groq import Groq
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 load_dotenv()
 
-API_KEY = os.getenv("SECRET_KEY")
+GROQ_KEY = os.getenv("SECRET_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-client = genai.Client(api_key=API_KEY)
+# Initialize Clients
+groq_client = Groq(api_key=GROQ_KEY)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# 🧠 LOCAL FILTER: API Quota bachane ke liye pehle hi check karo kaam ka notice hai ya nahi
 def is_relevant_notice(title, text=""):
     keywords = ["recruitment", "vacancy", "apply", "online", "bharti", "exam", "post", "notification", "crp", "agniveer", "vayu", "navy", "army", "hiring"]
     combined_content = (title + " " + text).lower()
@@ -36,7 +36,6 @@ def get_existing_database_records():
         print(f"⚠️ DB Fetch Error: {e}")
         return []
 
-# ---- BROWSER CONFIGURATION WITH TIMEOUT FIXES ----
 if os.getenv("GITHUB_ACTIONS") == "true":
     from selenium.webdriver.chrome.options import Options
     options = Options()
@@ -45,13 +44,12 @@ if os.getenv("GITHUB_ACTIONS") == "true":
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-    # 🔥 CRITICAL FIX: Don't wait for images/fonts to load, just grab the HTML
     options.page_load_strategy = 'eager'
     driver = webdriver.Chrome(options=options)
 else:
     driver = webdriver.Safari()
 
-driver.set_page_load_timeout(25) # Quick cutoff to avoid hanging indefinitely
+driver.set_page_load_timeout(25)
 
 try:
     with open("sites.json", "r") as f:
@@ -67,18 +65,16 @@ try:
             
             extracted_texts_to_analyze = []
 
-            # ---- CASE 1: SARKARI RESULT AGGREGATOR ----
+            # ---- CASE 1: SARKARI RESULT ----
             if "sarkariresult.com" in site['url'].lower():
                 print("🎯 Sarkari Result sections scan ho rahe hain...")
                 job_links = []
                 for link in soup.find_all("a", href=True):
                     if "/latestjob/" in link['href'].lower() or "agniveer" in link.text.lower():
-                        # Sirf relevant dikhne wale links ko hi list mein daalein
                         if is_relevant_notice(link.text.strip()):
                             full_job_url = urljoin(site['url'], link['href'])
                             job_links.append((link.text.strip(), full_job_url))
                 
-                # Filtered links me se top 5 check karein
                 for title, j_url in job_links[:5]:
                     print(f"🔗 Visiting Job Page: {title}")
                     try:
@@ -90,7 +86,7 @@ try:
                     except Exception as je:
                         print(f"⚠️ Skipping slow job page: {title}")
 
-            # ---- CASE 2: OFFICIAL SITES (PDF BASE) ----
+            # ---- CASE 2: OFFICIAL SITES (PDF) ----
             else:
                 all_links = soup.find_all("a")
                 valid_pdf_links = []
@@ -98,7 +94,6 @@ try:
                     href = link.get("href")
                     if href and ".pdf" in href.lower():
                         title = link.text.strip() or "Notice"
-                        # Local validation before adding
                         if is_relevant_notice(title):
                             valid_pdf_links.append((title, urljoin(site['url'], href)))
                         if len(valid_pdf_links) >= 3:
@@ -120,7 +115,7 @@ try:
                     except Exception as pe:
                         print(f"⚠️ PDF Download Failed for {title}")
 
-            # ---- AI PROCESSING & SMART MERGE ----
+            # ---- AI PROCESSING & SMART MERGE VIA GROQ ----
             if not extracted_texts_to_analyze:
                 print(f"⏭️ No relevant active forms found on {site['name']}.")
                 continue
@@ -129,9 +124,6 @@ try:
 
             for item in extracted_texts_to_analyze:
                 print(f"🧠 AI Analyzing notice: {item['source']}")
-                
-                # Rate limit control: Gemini hit karne se pehle chhota break
-                time.sleep(3)
                 
                 prompt = f"""
                 You are a Data Management AI for a Job Portal.
@@ -159,13 +151,17 @@ try:
                 }}
                 """
                 try:
-                    response = client.models.generate_content(
-                        model='gemini-2.5-flash',
-                        contents=prompt,
-                        config=types.GenerateContentConfig(response_mime_type="application/json"),
+                    # 🔥 Groq API Call with Llama-3.3 Model
+                    chat_completion = groq_client.chat.completions.create(
+                        messages=[
+                            {"role": "system", "content": "You are a database parser that outputs raw JSON only."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        model="llama-3.3-70b-versatile",
+                        response_format={"type": "json_object"}
                     )
                     
-                    ai_data = json.loads(response.text)
+                    ai_data = json.loads(chat_completion.choices[0].message.content)
                     
                     if ai_data.get("is_valid_exam") == True:
                         is_dup = ai_data.pop("is_duplicate_or_update", False)
@@ -181,7 +177,7 @@ try:
                     else:
                         print("⏭️ AI Filtered out: Not a valid active recruitment form.")
                 except Exception as ai_err:
-                    print(f"⚠️ Gemini processing failed for this entry: {ai_err}")
+                    print(f"⚠️ Groq processing failed for this entry: {ai_err}")
 
         except Exception as se:
             print(f"❌ Handled site timeout or error for {site['name']}")
