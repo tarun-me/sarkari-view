@@ -123,5 +123,36 @@ try:
                         if full_job_url not in [j[1] for j in job_links]:
                             job_links.append((text, full_job_url))
             
-            # 🔥 TOP 15 LATEST NOTIFICATIONS DEEP CHECK
-            for title, j_url in job_links
+            # 🔥 TOP 15 LATEST NOTIFICATIONS DEEP CHECK (FIXED SYNTAX)
+            for title, j_url in job_links[:15]:
+                print(f"🔗 Crawling Deep Job Page: {title}")
+                try:
+                    res = requests.get(j_url, headers=STEALTH_HEADERS, verify=False, timeout=10)
+                    j_soup = BeautifulSoup(res.text, "html.parser")
+                    page_text = j_soup.get_text(separator=' ', strip=True)
+                    extracted_texts_to_analyze.append({"source": title, "text": page_text[:3500]})
+                except Exception as je:
+                    print(f"⚠️ Skipping slow aggregator page: {title}")
+
+        # ---- CASE 2: OFFICIAL DIRECT PORTALS (PDF BASED) ----
+        else:
+            all_links = soup.find_all("a")
+            valid_pdf_links = []
+            for link in all_links:
+                href = link.get("href")
+                if href and ".pdf" in href.lower():
+                    title = link.text.strip() or "Notice"
+                    if is_relevant_notice(title):
+                        valid_pdf_links.append((title, urljoin(site['url'], href)))
+                    if len(valid_pdf_links) >= 3:
+                        break
+            
+            for title, pdf_link in valid_pdf_links:
+                print(f"📄 Downloading PDF Notice: {title}")
+                try:
+                    res = requests.get(pdf_link, headers=STEALTH_HEADERS, verify=False, timeout=12)
+                    if 'application/pdf' in res.headers.get('Content-Type', ''):
+                        with open("temp.pdf", "wb") as f:
+                            f.write(res.content)
+                        with pdfplumber.open("temp.pdf") as pdf:
+                            pdf_text = pdf.pages
