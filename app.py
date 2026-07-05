@@ -28,8 +28,8 @@ except Exception as e:
 # Data Load karne ka function
 def load_live_data():
     try:
-        # Exams table se saara data naye ke hisab se sort karke laayein
-        response = supabase.table("exams").select("*").order("created_at", descending=True).execute()
+        # 🔥 FIXED: Changed 'descending=True' to 'desc=True' according to Python Supabase SDK
+        response = supabase.table("exams").select("*").order("created_at", desc=True).execute()
         return response.data
     except Exception as e:
         st.error(f"❌ Database connection error: {e}")
