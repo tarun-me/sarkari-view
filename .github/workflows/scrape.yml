@@ -2,9 +2,8 @@ name: Automated Sarkari Job Scraper
 
 on:
   schedule:
-    # Har 4 ghante mein ek baar automatic chalega
     - cron: '0 */4 * * *'
-  workflow_dispatch: # Manual run button active rahega
+  workflow_dispatch:
 
 jobs:
   scrape:
@@ -24,7 +23,6 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y google-chrome-stable
 
-    # 🔥 FIX: Purane aur mismatched ChromeDriver ko delete karna taaki Selenium apna naya driver khud download kare
     - name: Remove mismatched pre-installed ChromeDriver
       run: |
         sudo rm -f /usr/bin/chromedriver
@@ -32,11 +30,13 @@ jobs:
     - name: Install Python Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install requests pdfplumber beautifulsoup4 selenium google-genai python-dotenv supabase
+        # 🔥 Added groq library
+        pip install requests pdfplumber beautifulsoup4 selenium groq python-dotenv supabase
 
     - name: Run Scraper Script
       env:
-        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        # 🔥 Switched to GROQ Key
+        SECRET_KRY: ${{ secrets.GROQ_API_KEY }}
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
       run: python ai_aggregator.py
