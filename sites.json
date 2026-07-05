@@ -10,7 +10,7 @@
         { "name": "Indian_Army", "url": "https://joinindianarmy.nic.in/" },
         { "name": "DRDO", "url": "https://www.drdo.gov.in/drdo/careers" },
         { "name": "ISRO", "url": "https://www.isro.gov.in/Careers.html" },
-        {"name": "Sarkari Result", "url": "https://www.sarkariresult.com/"},
+        { "name": "Sarkari Result", "url": "https://www.sarkariresult.com/" }
     ],
     "state_jobs": [
         { "name": "HSSC_Haryana", "url": "https://hssc.gov.in/Advertisements" },
